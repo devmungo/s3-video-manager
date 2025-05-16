@@ -2,63 +2,129 @@
 
 ## Description
 
-This project is a web-based application that provides a user-friendly interface for managing video files stored in Amazon S3. It integrates with CloudFront for secure content delivery and offers features such as drag-and-drop uploads, video browsing, searching, and sorting.
+A secure, single-page web application for managing video files in Amazon S3. Built with vanilla JavaScript and AWS services, it provides an intuitive interface for uploading, managing, and accessing video content through CloudFront. Features Cognito user authentication for secure access control.
 
 ## Features
 
+- Secure user authentication via Amazon Cognito
 - Drag-and-drop file upload to Amazon S3
 - Secure video delivery through CloudFront
-- List, search, and sort uploaded videos
-- Progress bar for upload status
-- Responsive design for various device sizes
-- Automatic expiration and refresh of video links
+- Real-time upload progress tracking
+- Video browsing with search and sort capabilities
+- Responsive design for all devices
+- Administrator-controlled user access
 
 ## Technologies Used
 
-- Frontend: HTML, CSS, JavaScript
-- Backend: Amazon S3 for storage
-- CDN: Amazon CloudFront
-- AWS SDK for JavaScript
+- Frontend:
+  - Vanilla JavaScript
+  - HTML5
+  - CSS3
+  - Font Awesome icons
+
+- AWS Services:
+  - Amazon S3 for storage
+  - Amazon CloudFront for content delivery
+  - Amazon Cognito for authentication
+  - AWS SDK for JavaScript
+
+## Prerequisites
+
+- AWS Account
+- Configured S3 bucket
+- CloudFront distribution
+- Cognito User Pool
+- Cognito Identity Pool
+
+## AWS Configuration Requirements
+
+1. S3 Bucket:
+   - Appropriate CORS configuration
+   - Bucket policy for CloudFront access
+   - Proper IAM roles and permissions
+
+2. CloudFront Distribution:
+   - Configured with S3 origin
+   - Appropriate response headers policy for CORS
+   - SSL/TLS certificate (if using custom domain)
+
+3. Cognito User Pool:
+   - Username-based authentication
+   - Appropriate password policies
+   - App client configured
+
+4. Cognito Identity Pool:
+   - Linked to User Pool
+   - Appropriate IAM roles for authenticated users
 
 ## Setup
 
-1. Clone the repository
-2. Update the AWS configuration in `app.js`:
-   - Set your AWS region
-   - Update the S3 bucket name
-   - Set your CloudFront domain
-3. Ensure your AWS IAM user has the necessary permissions
-4. Configure your S3 bucket policy to allow access from both CloudFront and your IAM user
-5. Set up CORS configuration for your S3 bucket
+1. Clone the repository:
+```bash
+git clone https://github.com/yourusername/s3-video-management.git
+```
+
+2. Update AWS configuration in `auth.js`:
+```javascript
+const poolData = {
+    UserPoolId: 'your-user-pool-id',
+    ClientId: 'your-app-client-id'
+};
+
+const IDENTITY_POOL_ID = 'your-identity-pool-id';
+const REGION = 'your-region';
+```
+
+3. Update S3 and CloudFront configuration in `app.js`:
+```javascript
+const BUCKET_NAME = 'your-bucket-name';
+const CLOUDFRONT_DOMAIN = 'your-cloudfront-domain';
+```
+
+## User Management
+
+- Users are managed by administrators through the AWS Cognito Console
+- New users can be created and managed directly in Cognito
+- Password policies and requirements are enforced by Cognito
+- First-time login requires password change
+
+## Security Features
+
+- Secure user authentication
+- Protected S3 bucket access
+- CloudFront content delivery
+- CORS protection
+- Automatic session handling
+- Secure credential management
 
 ## Usage
 
-1. Open the `index.html` file in a web browser
-2. Use the file input or drag-and-drop area to select videos for upload
-3. Click the upload button to start the upload process
-4. Use the search bar to find specific videos
-5. Click on the sort buttons to organize videos by name or upload date
-6. Click on a video link to download or stream the video
+1. Access the application through your web browser
+2. Log in with credentials provided by your administrator
+3. Upload videos using drag-and-drop or file selection
+4. Browse, search, and sort your video collection
+5. Access videos through secure CloudFront URLs
 
-## Security Considerations
+## Project Structure
 
-- Ensure that your AWS credentials are kept secure and not exposed in client-side code
-- Use IAM roles and policies to restrict access to your AWS resources
-- Regularly rotate your AWS access keys
-- Monitor your AWS resources for any unauthorized access or unusual activity
+```
+├── index.html          # Main HTML file
+├── styles.css         # Styles and layout
+├── auth.js           # Authentication handling
+├── app.js            # Main application logic
+└── README.md         # Documentation
+```
 
 ## Future Improvements
 
-- Implement user authentication and authorization
-- Add video preview functionality
-- Integrate with AWS Transcribe for automatic caption generation
-- Implement server-side processing for larger files
+- Video preview functionality
+- Bulk upload capabilities
+- Video categorization
+- Advanced search filters
+- Usage analytics
+- Custom video player integration
+- Thumbnail generation
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details.
-
-## Acknowledgments
-
-- Amazon Web Services for providing the cloud infrastructure
-- The AWS SDK for JavaScript team for their excellent documentation
+This project is licensed under the MIT License - see the LICENSE.mdfile for details.
