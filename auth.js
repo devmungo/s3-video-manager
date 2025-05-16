@@ -2,12 +2,12 @@
 
 // Authentication configuration
 const poolData = {
-    UserPoolId: 'us-east-1_xs3j5spMv', // Replace with your Cognito User Pool ID
-    ClientId: '7290q7afndjn2kpjnqg6jbhrns'   // Replace with your App Client ID
+    UserPoolId: '<UserPoolID', // Replace with your Cognito User Pool ID
+    ClientId: '<Client-id>'   // Replace with your App Client ID
 };
 
-const IDENTITY_POOL_ID = 'us-east-1:8149943f-d94b-40ff-b739-203941c3d0c7'; // Your Identity Pool ID
-const REGION = 'us-east-1'; // Your region
+const IDENTITY_POOL_ID = '<IDENTITY_POOL_ID>'; // Your Identity Pool ID
+const REGION = 'region'; // Your region
 
 const userPool = new AmazonCognitoIdentity.CognitoUserPool(poolData);
 let currentUser = null;
