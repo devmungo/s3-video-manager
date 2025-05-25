@@ -1,16 +1,28 @@
 // auth.js
 
-// Authentication configuration
+// Authentication configuration with maximum token lifetimes
+const TOKEN_REFRESH_INTERVAL = 82800000; // 23 hours in milliseconds
+const TOKEN_EXPIRATION = 86400; // 24 hours in seconds
+
 const poolData = {
     UserPoolId: '<UserPoolID', // Replace with your Cognito User Pool ID
-    ClientId: '<Client-id>'   // Replace with your App Client ID
+    ClientId: '<Client-id>',   // Replace with your App Client ID 
+    TokenValidation: {
+        accessTokenValiditySeconds: TOKEN_EXPIRATION,
+        idTokenValiditySeconds: TOKEN_EXPIRATION,
+        refreshTokenValidityDays: 3650 // 10 years
+    }
 };
 
 const IDENTITY_POOL_ID = '<IDENTITY_POOL_ID>'; // Your Identity Pool ID
-const REGION = 'region'; // Your region
+const REGION = '<your-region>'; // Your region
+const MAX_OPERATION_TIME = 3600000; // 1 hour default timeout for operations
 
 const userPool = new AmazonCognitoIdentity.CognitoUserPool(poolData);
 let currentUser = null;
+let sessionRefreshTimer = null;
+let activeOperations = 0;
+let pendingRefresh = null;
 
 // Utility functions
 function showSection(sectionId) {
@@ -37,20 +49,84 @@ function showAuthMessage(message, type = 'error') {
     }
 }
 
+// Operation tracking functions
+function startOperation() {
+    activeOperations++;
+    console.log(`Operation started. Active operations: ${activeOperations}`);
+}
+
+async function endOperation() {
+    activeOperations--;
+    console.log(`Operation ended. Active operations: ${activeOperations}`);
+
+    // If this was the last operation and there's a pending refresh, execute it
+    if (activeOperations === 0 && pendingRefresh) {
+        const { idToken, resolve, reject } = pendingRefresh;
+        pendingRefresh = null;
+        try {
+            await configureAWS(idToken, true);
+            resolve();
+        } catch (error) {
+            reject(error);
+        }
+    }
+}
+
+// Session refresh logic
+async function refreshSession() {
+    const user = userPool.getCurrentUser();
+    if (!user) return null;
+
+    return new Promise((resolve, reject) => {
+        user.getSession((err, session) => {
+            if (err) {
+                reject(err);
+                return;
+            }
+            if (session.isValid()) {
+                resolve(session);
+            } else {
+                user.refreshSession(session.getRefreshToken(), (err, newSession) => {
+                    if (err) {
+                        reject(err);
+                        return;
+                    }
+                    resolve(newSession);
+                });
+            }
+        });
+    });
+}
+
+// Force token refresh function
+async function forceTokenRefresh() {
+    try {
+        const session = await refreshSession();
+        if (session) {
+            await configureAWS(session.getIdToken().getJwtToken(), true);
+            return true;
+        }
+        return false;
+    } catch (error) {
+        console.error('Force token refresh failed:', error);
+        return false;
+    }
+}
+
 // Configure AWS SDK with Identity Pool
-function configureAWS(idToken) {
+async function configureAWS(idToken, forceRefresh = false) {
     return new Promise((resolve, reject) => {
         console.log('Setting up AWS credentials...');
         
+        // If there are active operations and this isn't a forced refresh, queue it
+        if (activeOperations > 0 && !forceRefresh) {
+            console.log('Active operations detected, queueing credential refresh');
+            pendingRefresh = { idToken, resolve, reject };
+            return;
+        }
+
         AWS.config.region = REGION;
         
-        console.log('Configuring AWS credentials with:', {
-            IdentityPoolId: IDENTITY_POOL_ID,
-            UserPoolId: poolData.UserPoolId,
-            LoginKey: `cognito-idp.${REGION}.amazonaws.com/${poolData.UserPoolId}`,
-            Region: REGION
-        });
-
         const credentials = new AWS.CognitoIdentityCredentials({
             IdentityPoolId: IDENTITY_POOL_ID,
             Logins: {
@@ -60,22 +136,38 @@ function configureAWS(idToken) {
 
         AWS.config.credentials = credentials;
 
-        // Refresh credentials
         credentials.refresh((error) => {
             if (error) {
                 console.error('Credentials refresh error:', error);
-                console.error('Full error details:', JSON.stringify(error, null, 2));
                 reject(error);
                 return;
             }
             
             console.log('Successfully obtained credentials');
-            console.log('Identity Id:', credentials.identityId);
             
             AWS.config.update({
                 region: REGION,
                 credentials: credentials
             });
+
+            // Set up periodic refresh - now using 23-hour interval
+            if (sessionRefreshTimer) clearInterval(sessionRefreshTimer);
+            sessionRefreshTimer = setInterval(async () => {
+                try {
+                    const session = await refreshSession();
+                    if (session) {
+                        await configureAWS(session.getIdToken().getJwtToken());
+                    }
+                } catch (error) {
+                    console.error('Session refresh failed:', error);
+                    // Don't redirect to login if there's an active upload
+                    if (activeOperations === 0) {
+                        showSection('login-section');
+                    } else {
+                        console.warn('Delaying session redirect due to active operations');
+                    }
+                }
+            }, TOKEN_REFRESH_INTERVAL);
 
             resolve();
         });
@@ -104,16 +196,9 @@ async function login(username, password) {
                 try {
                     currentUser = cognitoUser;
                     const idToken = result.getIdToken().getJwtToken();
-                    
-                    console.log('Authentication successful, configuring AWS...');
-                    
                     await configureAWS(idToken);
-                    
-                    console.log('AWS configuration complete');
-                    
                     resolve(result);
                 } catch (error) {
-                    console.error('Error during AWS configuration:', error);
                     reject(error);
                 }
             },
@@ -131,6 +216,11 @@ async function login(username, password) {
 
 // Logout
 function logout() {
+    if (sessionRefreshTimer) {
+        clearInterval(sessionRefreshTimer);
+        sessionRefreshTimer = null;
+    }
+
     const user = userPool.getCurrentUser();
     if (user) {
         user.signOut();
@@ -144,37 +234,46 @@ function logout() {
 
 // Check Authentication State
 async function checkAuth() {
-    return new Promise((resolve, reject) => {
-        const user = userPool.getCurrentUser();
-        if (!user) {
-            reject(new Error('No user found'));
-            return;
+    try {
+        const session = await refreshSession();
+        if (session) {
+            await configureAWS(session.getIdToken().getJwtToken());
+            return true;
+        }
+        return false;
+    } catch (error) {
+        console.error('Auth check failed:', error);
+        return false;
+    }
+}
+
+// Initialize the application
+async function initializeApp() {
+    try {
+        if (!AWS.config.credentials) {
+            throw new Error('No credentials available');
+        }
+        
+        // Wait for credentials to be available
+        if (AWS.config.credentials.needsRefresh()) {
+            await new Promise((resolve, reject) => {
+                AWS.config.credentials.refresh((err) => {
+                    if (err) {
+                        reject(err);
+                    } else {
+                        resolve();
+                    }
+                });
+            });
         }
 
-        user.getSession(async (err, session) => {
-            if (err) {
-                reject(err);
-                return;
-            }
-            if (!session.isValid()) {
-                reject(new Error('Invalid session'));
-                return;
-            }
-
-            currentUser = user;
-            const idToken = session.getIdToken().getJwtToken();
-
-            try {
-                console.log('Session valid, configuring AWS...');
-                await configureAWS(idToken);
-                console.log('AWS configuration complete for session check');
-                resolve(user);
-            } catch (error) {
-                console.error('Error during session AWS configuration:', error);
-                reject(error);
-            }
-        });
-    });
+        // Now initialize the app components
+        await loadFolders();
+        await loadVideos();
+    } catch (error) {
+        console.error('Failed to initialize app:', error);
+        showAuthMessage('Failed to initialize application. Please refresh the page.');
+    }
 }
 
 // Event Listeners
@@ -190,10 +289,7 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('user-email').textContent = username;
             showSection('main-content');
             document.getElementById('user-info').style.display = 'block';
-            // Refresh the video list after successful login
-            if (typeof loadVideos === 'function') {
-                loadVideos();
-            }
+            await initializeApp();
         } catch (error) {
             showAuthMessage(error.message);
         }
@@ -229,7 +325,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 );
             });
 
-            // Clear the temporary storage
             window.tempCognitoUser = null;
             window.tempUserAttributes = null;
 
@@ -245,14 +340,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Check initial auth state
     checkAuth()
-        .then(user => {
-            const username = user.getUsername();
-            document.getElementById('user-email').textContent = username;
-            showSection('main-content');
-            document.getElementById('user-info').style.display = 'block';
-            // Load videos after authentication check
-            if (typeof loadVideos === 'function') {
-                loadVideos();
+        .then(async isAuthenticated => {
+            if (isAuthenticated) {
+                const user = userPool.getCurrentUser();
+                if (user) {
+                    document.getElementById('user-email').textContent = user.getUsername();
+                    showSection('main-content');
+                    document.getElementById('user-info').style.display = 'block';
+                    await initializeApp();
+                }
+            } else {
+                showSection('login-section');
             }
         })
         .catch(() => {
@@ -263,3 +361,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // Export functions for use in app.js
 window.checkAuth = checkAuth;
 window.showAuthMessage = showAuthMessage;
+window.startOperation = startOperation;
+window.endOperation = endOperation;
+window.initializeApp = initializeApp;
+window.forceTokenRefresh = forceTokenRefresh;

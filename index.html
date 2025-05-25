@@ -3,72 +3,87 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sent Studio Video Upload and Download Hub</title>
+    <title>Upload and Download Hub</title>
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="https://sdk.amazonaws.com/js/aws-sdk-2.1174.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/amazon-cognito-identity-js@6.3.1/dist/amazon-cognito-identity.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js"></script>
 </head>
 <body>
     <!-- Toast Container -->
     <div id="toast-container"></div>
 
+    <!-- Main Content Section -->
     <div id="main-content" style="display: none;">
+        <!-- User Info Bar -->
         <div id="user-info">
             <span>Welcome, <span id="user-email"></span></span>
-            <button id="logout-button"></i> Logout</button>
+            <button id="logout-button"><i class="fas fa-sign-out-alt"></i> Logout</button>
         </div>
 
         <div class="container">
+            <!-- Header -->
             <header>
-                <h1><i class="fas fa-cloud-upload-alt"></i>Sent Studios Upload and Download Hub</h1>
-                <p class="subtitle">A home For Creatives :)</p>
+                <h1><i class="fas fa-cloud-upload-alt"></i>Upload and Download Hub</h1>
+                <p class="subtitle">For Creatives :)</p>
             </header>
 
-            <div class="stats-container">
-                <div class="stat-box">
-                    <i class="fas fa-file-video"></i>
-                    <span id="video-count">0</span>
-                    <p>Videos</p>
-                </div>
-                <div class="stat-box">
-                    <i class="fas fa-clock"></i>
-                    <span id="last-upload">Never</span>
-                    <p>Last Upload</p>
-                </div>
-            </div>
-
+            <!-- Upload Section -->
             <div class="upload-section">
-                <h2><i class="fas fa-upload"></i> Upload Video</h2>
+                <h2><i class="fas fa-upload"></i> Upload Media</h2>
                 <div class="upload-status" id="upload-status"></div>
                 
                 <div class="drop-zone" id="drop-zone">
                     <div class="drop-zone-content">
                         <i class="fas fa-cloud-upload-alt"></i>
-                        <p>Drag & Drop your video here</p>
+                        <p>Drag & Drop your media file here</p>
                         <span>OR</span>
                         <form id="upload-form">
-                            <label for="file-input" class="custom-file-upload">
-                                <i class="fas fa-file-upload"></i> Choose File
-                            </label>
-                            <input type="file" id="file-input" accept="video/*" hidden>
-                            <button type="submit" id="upload-button" disabled>
-                                <i class="fas fa-upload"></i> Upload
-                            </button>
+                            <div class="upload-controls">
+                                <div class="folder-select-container">
+                                    <div class="folder-select">
+                                        <select id="folder-select">
+                                            <option value="">Select Client Folder</option>
+                                        </select>
+                                    </div>
+                                    <button type="button" id="create-folder-btn" class="create-folder-btn">
+                                        <i class="fas fa-folder-plus"></i> New Folder
+                                    </button>
+                                </div>
+                                <label for="file-input" class="custom-file-upload">
+                                    <i class="fas fa-file-upload"></i> Choose File
+                                </label>
+                                <input type="file" id="file-input" accept="video/*,audio/*" hidden>
+                                <button type="submit" id="upload-button" disabled>
+                                    <i class="fas fa-upload"></i> Upload
+                                </button>
+                            </div>
                         </form>
                     </div>
-                    <div class="progress-bar" id="progress-bar">
-                        <div class="progress" id="progress"></div>
+                    <div class="progress-container">
+                        <div class="progress-bar" id="progress-bar">
+                            <div class="progress" id="progress"></div>
+                        </div>
+                        <div class="progress-stats" id="progress-stats"></div>
                     </div>
                 </div>
             </div>
-            
+
+            <!-- Download Section -->
             <div class="download-section">
-                <h2><i class="fas fa-video"></i> Available Videos</h2>
+                <h2><i class="fas fa-download"></i> Available Media Files</h2>
                 <div class="filter-controls">
-                    <div class="search-box">
-                        <input type="text" id="search-input" placeholder="Search videos...">
-                        <i class="fas fa-search"></i>
+                    <div class="browse-controls">
+                        <div class="folder-select">
+                            <select id="browse-folder-select">
+                                <option value="">Select Client Folder</option>
+                            </select>
+                        </div>
+                        <div class="search-box">
+                            <input type="text" id="search-input" placeholder="Search files...">
+                            <i class="fas fa-search"></i>
+                        </div>
                     </div>
                     <div class="sort-options">
                         <button id="sort-name" data-direction="asc">
@@ -81,17 +96,25 @@
                 </div>
                 <div id="video-list" class="video-grid"></div>
             </div>
+
+            <!-- Folder List Section -->
+            <div class="folder-list">
+                <h2><i class="fas fa-folder-open"></i> Client Folders</h2>
+                <div id="folder-grid" class="folder-grid"></div>
+            </div>
         </div>
 
+        <!-- Footer -->
         <footer>
-            <p>© 2025 Sent Studio | <a href="https://sentstudios.com" target="_blank" >www.sentstudios.com</a></p>
+            <p>© 2025 Github | <a href="https://github.com" target="_blank">www.github.com</a></p>
         </footer>
     </div>
 
+    <!-- Auth Section -->
     <div id="auth-section">
         <!-- Login Form -->
         <div id="login-section">
-            <h2><i class="fas fa-sign-in-alt"></i> Login to Video Hub</h2>
+            <h2><i class="fas fa-sign-in-alt"></i> Login to Sent Hub</h2>
             <form id="login-form">
                 <div class="input-group">
                     <i class="fas fa-user"></i>
@@ -122,6 +145,13 @@
         </div>
     </div>
 
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="loading-overlay" style="display: none;">
+        <div class="loading-spinner"></div>
+        <p>Processing...</p>
+    </div>
+
+    <!-- Scripts -->
     <script src="auth.js"></script>
     <script src="app.js"></script>
 </body>
