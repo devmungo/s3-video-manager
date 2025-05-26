@@ -61,6 +61,190 @@ A secure, single-page web application for managing video files in Amazon S3. Bui
 4. Cognito Identity Pool:
    - Linked to User Pool
    - Appropriate IAM roles for authenticated users
+  
+##  AWS Lambda Configuration
+
+1. Create a new Lambda function:
+- Go to AWS Lambda console
+- Click "Create function"
+- Choose "Author from scratch"
+- Set Runtime to Node.js 18.x
+- Set appropriate IAM role with necessary permissions
+- 
+2. Required IAM Permissions for Lambda:
+
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "s3:GetObject",
+                "s3:PutObject",
+                "s3:ListBucket",
+                "s3:DeleteObject"
+            ],
+            "Resource": [
+                "arn:aws:s3:::your-bucket-name",
+                "arn:aws:s3:::your-bucket-name/*"
+            ]
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "cloudfront:CreateInvalidation",
+                "cloudfront:GetDistribution"
+            ],
+            "Resource": "*"
+        }
+    ]
+}
+
+3. Lambda Function Code:
+// generateShareableLinks/index.js
+
+const { S3Client, ListObjectsCommand, GetObjectCommand, PutObjectCommand } = require("@aws-sdk/client-s3");
+const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
+
+const s3Client = new S3Client({ region: "<provide-region>" });
+const CLOUDFRONT_DOMAIN = '<CLOUDFRONT_DOMAIN>';
+
+exports.handler = async (event) => {
+    try {
+        const { folderPrefix } = event;  // Removed expirationDays parameter
+        
+        if (!folderPrefix) {
+            throw new Error('folderPrefix is required');
+        }
+
+        // List objects in the folder
+        const listCommand = new ListObjectsCommand({
+            Bucket: 'cptsiteza',
+            Prefix: folderPrefix
+        });
+        
+        const listedObjects = await s3Client.send(listCommand);
+
+        // Generate CloudFront URLs for each file
+        const fileUrls = listedObjects.Contents
+            .filter(obj => obj.Size > 0)
+            .map(obj => ({
+                name: obj.Key.split('/').pop(),
+                url: `https://${CLOUDFRONT_DOMAIN}/${encodeURIComponent(obj.Key)}`,
+                size: obj.Size,
+                lastModified: obj.LastModified
+            }));
+
+        // Create HTML page with styling (removed expiration notice)
+        const landingPage = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shared Files</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .file-list {
+            list-style: none;
+            padding: 0;
+        }
+        .file-item {
+            background: white;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 4px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .file-name {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .file-meta {
+            font-size: 0.9em;
+            color: #666;
+            margin-bottom: 10px;
+        }
+        .download-btn {
+            background: #2196F3;
+            color: white;
+            padding: 8px 16px;
+            text-decoration: none;
+            border-radius: 4px;
+            display: inline-block;
+        }
+        .download-btn:hover {
+            background: #1976D2;
+        }
+        h1 {
+            color: #2196F3;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Shared Files</h1>
+    <div class="file-list">
+        ${fileUrls.map(file => `
+            <div class="file-item">
+                <div class="file-name">${file.name}</div>
+                <div class="file-meta">
+                    Size: ${formatBytes(file.size)} | 
+                    Modified: ${new Date(file.lastModified).toLocaleString()}
+                </div>
+                <a href="${file.url}" class="download-btn" download="${file.name}">Download</a>
+            </div>
+        `).join('')}
+    </div>
+</body>
+</html>`;
+
+        // Create a unique key for the share page
+        const shareKey = `shares/${Date.now()}-${folderPrefix.replace(/\//g, '-')}index.html`;
+        
+        // Upload the HTML page to S3
+        const putCommand = new PutObjectCommand({
+            Bucket: 'cptsiteza',
+            Key: shareKey,
+            Body: landingPage,
+            ContentType: 'text/html'
+        });
+        
+        await s3Client.send(putCommand);
+
+        // Generate the CloudFront URL for the share page
+        const shareUrl = `https://${CLOUDFRONT_DOMAIN}/${encodeURIComponent(shareKey)}`;
+
+        return {
+            statusCode: 200,
+            body: {
+                shareableUrl: shareUrl
+            }
+        };
+    } catch (error) {
+        console.error('Error:', error);
+        return {
+            statusCode: error.statusCode || 500,
+            body: {
+                error: error.message || 'An unexpected error occurred'
+            }
+        };
+    }
+};
+
+function formatBytes(bytes) {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
 
 ## Setup
 
