@@ -4,31 +4,36 @@
 
 A secure, single-page web application for managing video files in Amazon S3. Built with vanilla JavaScript and AWS services, it provides an intuitive interface for uploading, managing, and accessing video content through CloudFront. Features Cognito user authentication for secure access control.
 
-## Features
+### Key Features
 
-- Secure user authentication via Amazon Cognito
-- Drag-and-drop file upload to Amazon S3
-- Secure video delivery through CloudFront
-- Real-time upload progress tracking
-- Video browsing with search and sort capabilities
-- Responsive design for all devices
-- Administrator-controlled user access
+- 🎥 Support for various media formats (video and audio)
+- 📁 Client folder organization
+- ⚡ High-performance chunked uploads
+- 🔄 Resume-capable file transfers
+- 🔍 Advanced search and sort capabilities
+- 🔐 Secure AWS Cognito authentication
+- 🌐 CloudFront content delivery
+- 📱 Responsive design
+- 🎯 Drag and drop interface
 
-## Technologies Used
+## Technical Stack
 
-- Frontend:
-  - Vanilla JavaScript
-  - HTML5
-  - CSS3
-  - Font Awesome icons
-
-- AWS Services:
-  - Amazon S3 for storage
-  - Amazon CloudFront for content delivery
-  - Amazon Cognito for authentication
+- **Frontend**: HTML5, CSS3, JavaScript (ES6+)
+- **Cloud Services**: 
+  - AWS S3 for storage
+  - AWS Cognito for authentication
+  - AWS CloudFront for content delivery
+  - AWS Lambda for serverless operations
+  - 
+- **Libraries**:
   - AWS SDK for JavaScript
+  - Amazon Cognito Identity SDK
+  - JSZip for bulk downloads
+  - Font Awesome for icons
 
-## Prerequisites
+## Setup and Configuration
+
+### Prerequisites
 
 - AWS Account
 - Configured S3 bucket
@@ -105,6 +110,35 @@ const CLOUDFRONT_DOMAIN = 'your-cloudfront-domain';
 4. Browse, search, and sort your video collection
 5. Access videos through secure CloudFront URLs
 
+## Features in Detail
+
+### Secure File Upload
+- Chunked upload support for large files
+- Progress tracking with speed and time estimation
+- Automatic retry on failure
+- File existence checking
+- Duplicate file handling
+  
+### File Management
+- Create and organize client folders
+- Sort files by name or date
+- Search functionality
+- File type filtering
+- Detailed file statistics
+
+### Sharing Capabilities
+- Generate secure sharing links
+- Bulk download functionality
+-CloudFront integration for fast delivery
+- Link expiration management
+  
+### Security Features
+- AWS Cognito authentication
+- Session management
+-Token refresh handling
+- Secure file access controls
+   
+
 ## Project Structure
 
 ```
@@ -114,6 +148,23 @@ const CLOUDFRONT_DOMAIN = 'your-cloudfront-domain';
 ├── app.js            # Main application logic
 └── README.md         # Documentation
 ```
+
+### Authentication System (auth.js)
+Cognito integration
+Session management
+Token refresh logic
+
+### File Management (app.js)
+Upload handling
+Download management
+Folder organization
+Search and sort functionality
+
+### User Interface (styles.css)
+Responsive design
+Modern UI components
+Progress indicators
+Toast notifications
 
 ## Future Improvements
 
