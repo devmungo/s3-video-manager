@@ -101,7 +101,6 @@ A secure, single-page web application for managing video files in Amazon S3. Bui
 }
 
 3. Lambda Function Code:
-// generateShareableLinks/index.js
 
 const { S3Client, ListObjectsCommand, GetObjectCommand, PutObjectCommand } = require("@aws-sdk/client-s3");
 const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
